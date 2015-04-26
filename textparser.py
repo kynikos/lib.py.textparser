@@ -1,4 +1,4 @@
-# TextParser - An event-based text parser for Python.
+# TextParser - An event-based, single-iteration text parser for Python.
 # Copyright (C) 2015 Dario Giovannetti <dev@dariogiovannetti.net>
 #
 # This file is part of TextParser.
