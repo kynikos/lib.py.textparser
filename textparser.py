@@ -33,64 +33,64 @@ class TextParser:
         #  *end* of self.remainder_text, so they are in ascending order in
         #  the list
         self.next_marks_revpos = []
-        # self.next_marks lists the matches associated to the same-index
+        # self.next_marks_match lists the matches associated to the same-index
         #  position in self.next_marks_revpos
-        self.next_marks = []
-        # self.next_events lists the events associated to the same-index
-        #  position in self.next_marks_revpos
-        self.next_events = []
+        self.next_marks_match = []
+        # self.next_marks_re lists the regular expression associated to the
+        #  same-index position in self.next_marks_revpos
+        self.next_marks_re = []
 
-    def _update_mark_position(self, Event):
+    def _update_mark_position(self, regex):
         # This method is defined dynamically with self._update_mark_position_*
         #  methods
         pass
 
-    def _update_mark_position_continue(self, Event):
+    def _update_mark_position_continue(self, regex):
         # This method must accept the same arguments as the other
         #  self._update_mark_position_* methods
-        # This method assumes that Event is not stored in the self.next_* lists
-        #  yet/anymore
-        mark = Event.MARK.search(self.remainder_text)
+        # This method assumes that regex is not stored in the self.next_marks_*
+        #  lists yet/anymore
+        mark = regex.search(self.remainder_text)
         if mark is None:
             # Use unbind_all because only one handler was supposed to handle
             #  the text event
-            self.eventdispatcher.unbind_all(Event)
+            self.eventdispatcher.unbind_all(regex)
         else:
             revpos = len(self.remainder_text) - mark.start()
             revposindex = bisect.bisect_left(self.next_marks_revpos, revpos)
             self.next_marks_revpos.insert(revposindex, revpos)
-            self.next_marks.insert(revposindex, mark)
-            self.next_events.insert(revposindex, Event)
+            self.next_marks_match.insert(revposindex, mark)
+            self.next_marks_re.insert(revposindex, regex)
 
-    def _update_mark_position_terminate(self, Event):
+    def _update_mark_position_terminate(self, regex):
         # This method must accept the same arguments as the other
         #  self._update_mark_position_* methods
-        for Event in self.next_events:
-            self.eventdispatcher.unbind_all(Event)
+        for regex in self.next_marks_re:
+            self.eventdispatcher.unbind_all(regex)
         self.next_marks_revpos.clear()
-        self.next_marks.clear()
-        self.next_events.clear()
+        self.next_marks_match.clear()
+        self.next_marks_re.clear()
 
     def reset_bindings(self, bindings):
-        newbindings = set(bindings.keys()) - set(self.next_events)
-        delbindings = set(self.next_events) - set(bindings.keys())
-        for Event in bindings:
-            handler = bindings[Event]
+        newbindings = set(bindings.keys()) - set(self.next_marks_re)
+        delbindings = set(self.next_marks_re) - set(bindings.keys())
+        for regex in bindings:
+            handler = bindings[regex]
             # Use bind_one because only one handler must handle a text event
-            self.eventdispatcher.bind_one(Event, handler)
-        for Event in delbindings:
+            self.eventdispatcher.bind_one(regex, handler)
+        for regex in delbindings:
             # Use unbind_all because only one handler was supposed to handle
             #  the text event
-            self.eventdispatcher.unbind_all(Event)
-            index = self.next_events.index(Event)
+            self.eventdispatcher.unbind_all(regex)
+            index = self.next_marks_re.index(regex)
             del self.next_marks_revpos[index]
-            del self.next_marks[index]
-            del self.next_events[index]
-        for Event in newbindings:
+            del self.next_marks_match[index]
+            del self.next_marks_re[index]
+        for regex in newbindings:
             # Run self._update_mark_position_continue *after* binding the
             #  handlers, so that self._update_mark_position_continue can unbind
             #  it if there are no matches
-            self._update_mark_position(Event)
+            self._update_mark_position(regex)
 
     def bind_to_parse_end(self, handler):
         self.eventdispatcher.bind_one(ParseEndEvent, handler)
@@ -103,30 +103,30 @@ class TextParser:
             except IndexError:
                 break
             # Do not pop values here, see comment below
-            mark = self.next_marks[-1]
+            mark = self.next_marks_match[-1]
             # Remember that mark was, in general, found with a different
             #  self.remainder_text, so its absolute start and end values cannot
             #  be trusted; the difference (the length of the match), however,
             #  is still valid
             startpos = revpos * -1
             endpos = startpos - mark.start() + mark.end()
-            # Do not pop the Event here, because for example the handler might
-            #  call self.reset_bindings, which needs the Event to be in the
+            # Do not pop the regex here, because for example the handler might
+            #  call self.reset_bindings, which needs the regex to be in the
             #  list
-            Event = self.next_events[-1]
+            regex = self.next_marks_re[-1]
             parsed_text = self.remainder_text[:startpos]
             self.remainder_text = self.remainder_text[endpos:] \
                                   if endpos < 0 else ''
-            # It's important that the Event is still in self.next_events while
-            #  the event is handled, see also comment above
-            self.eventdispatcher.fire(Event, Event(mark, parsed_text))
+            # It's important that the regex is still in self.next_marks_re
+            #  while the event is handled, see also comment above
+            self.eventdispatcher.fire(regex, MarkEvent(mark, parsed_text))
             # The event handler might have called self.reset_bindings and
-            #  unbound this very Event
-            if self.eventdispatcher.has_handlers(Event):
+            #  unbound this very regex's event
+            if self.eventdispatcher.has_handlers(regex):
                 del self.next_marks_revpos[-1]
-                del self.next_marks[-1]
-                del self.next_events[-1]
-                self._update_mark_position(Event)
+                del self.next_marks_match[-1]
+                del self.next_marks_re[-1]
+                self._update_mark_position(regex)
 
         self.eventdispatcher.fire(ParseEndEvent,
                                   ParseEndEvent(self.remainder_text))
@@ -137,8 +137,6 @@ class TextParser:
 
 
 class MarkEvent:
-    MARK = None
-
     def __init__(self, mark, parsed_text):
         self.mark = mark
         self.parsed_text = parsed_text
