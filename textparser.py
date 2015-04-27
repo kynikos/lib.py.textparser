@@ -92,6 +92,9 @@ class TextParser:
             #  it if there are no matches
             self._update_mark_position(Event)
 
+    def bind_to_parse_end(self, handler):
+        self.eventdispatcher.bind_one(ParseEndEvent, handler)
+
     def parse(self):
         while True:
             try:
@@ -125,8 +128,8 @@ class TextParser:
                 del self.next_events[-1]
                 self._update_mark_position(Event)
 
-        self.eventdispatcher.fire(RemainderEvent,
-                                  RemainderEvent(self.remainder_text))
+        self.eventdispatcher.fire(ParseEndEvent,
+                                  ParseEndEvent(self.remainder_text))
         return self.remainder_text
 
     def terminate(self):
@@ -141,6 +144,6 @@ class MarkEvent:
         self.parsed_text = parsed_text
 
 
-class RemainderEvent:
+class ParseEndEvent:
     def __init__(self, remainder_text):
         self.remainder_text = remainder_text
