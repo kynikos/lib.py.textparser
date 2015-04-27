@@ -111,12 +111,12 @@ class TextParser:
             #  call self.reset_bindings, which needs the Event to be in the
             #  list
             Event = self.next_events[-1]
-            processed_text = self.remainder_text[:startpos]
+            parsed_text = self.remainder_text[:startpos]
             self.remainder_text = self.remainder_text[endpos:] \
                                   if endpos < 0 else ''
             # It's important that the Event is still in self.next_events while
             #  the event is handled, see also comment above
-            self.eventdispatcher.fire(Event, Event(mark, processed_text))
+            self.eventdispatcher.fire(Event, Event(mark, parsed_text))
             # The event handler might have called self.reset_bindings and
             #  unbound this very Event
             if self.eventdispatcher.has_handlers(Event):
@@ -136,9 +136,9 @@ class TextParser:
 class MarkEvent:
     MARK = None
 
-    def __init__(self, mark, processed_text):
+    def __init__(self, mark, parsed_text):
         self.mark = mark
-        self.processed_text = processed_text
+        self.parsed_text = parsed_text
 
 
 class RemainderEvent:
