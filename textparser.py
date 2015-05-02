@@ -92,6 +92,10 @@ class TextParser:
             #  it if there are no matches
             self._update_mark_position(regex)
 
+    def prepend_text_and_reset_bindings(self, text, bindings):
+        self.remainder_text = ''.join((text, self.remainder_text))
+        self.reset_bindings(bindings)
+
     def bind_to_parse_end(self, handler):
         self.eventdispatcher.bind_one(ParseEndEvent, handler)
 
