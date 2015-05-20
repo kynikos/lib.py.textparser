@@ -123,7 +123,8 @@ class TextParser:
                                   if endpos < 0 else ''
             # It's important that the regex is still in self.next_marks_re
             #  while the event is handled, see also comment above
-            self.eventdispatcher.fire(regex, MarkEvent(mark, parsed_text))
+            self.eventdispatcher.fire(regex, MarkEvent(regex, mark,
+                                                       parsed_text))
             # The event handler might have called self.reset_bindings and
             #  unbound this very regex's event
             if self.eventdispatcher.has_handlers(regex):
@@ -141,7 +142,8 @@ class TextParser:
 
 
 class MarkEvent:
-    def __init__(self, mark, parsed_text):
+    def __init__(self, regex, mark, parsed_text):
+        self.regex = regex
         self.mark = mark
         self.parsed_text = parsed_text
 
