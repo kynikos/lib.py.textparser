@@ -25,6 +25,7 @@ class TextParser:
         # self.remainder_text stores the part of text that still has to be
         #  processed
         self.remainder_text = text
+        self.currentrevpos = len(text)
         self.eventdispatcher = eventdispatcher.EventDispatcher()
         self._update_mark_position = self._update_mark_position_continue
         # self.next_marks_revpos lists the next positions of the element
@@ -93,8 +94,12 @@ class TextParser:
             self._update_mark_position(regex)
 
     def prepend_text_and_reset_bindings(self, text, bindings):
-        self.remainder_text = ''.join((text, self.remainder_text))
+        self._prepend_text(text)
         self.reset_bindings(bindings)
+
+    def _prepend_text(self, text):
+        self.remainder_text = ''.join((text, self.remainder_text))
+        self.currentrevpos += len(text)
 
     def bind_to_parse_end(self, handler):
         self.eventdispatcher.bind_one(ParseEndEvent, handler)
@@ -108,23 +113,26 @@ class TextParser:
                 break
             # Do not pop values here, see comment below
             mark = self.next_marks_match[-1]
-            # Remember that mark was, in general, found with a different
-            #  self.remainder_text, so its absolute start and end values cannot
-            #  be trusted; the difference (the length of the match), however,
-            #  is still valid
-            startpos = revpos * -1
-            endpos = startpos - mark.start() + mark.end()
-            # Do not pop the regex here, because for example the handler might
-            #  call self.reset_bindings, which needs the regex to be in the
-            #  list
+            # Do not pop the regex here, because for example a MarkEvent
+            #  handler might call self.reset_bindings, which needs the regex to
+            #  be in the list
             regex = self.next_marks_re[-1]
-            parsed_text = self.remainder_text[:startpos]
-            self.remainder_text = self.remainder_text[endpos:] \
-                                  if endpos < 0 else ''
-            # It's important that the regex is still in self.next_marks_re
-            #  while the event is handled, see also comment above
-            self.eventdispatcher.fire(regex, MarkEvent(regex, mark,
-                                                       parsed_text))
+            # Do not allow overlapping matches
+            if revpos <= self.currentrevpos:
+                startpos = revpos * -1
+                # Remember that mark was, in general, found with a different
+                #  self.remainder_text, so its absolute start and end values cannot
+                #  be trusted; the difference (the length of the match), however,
+                #  is still valid
+                endpos = startpos - mark.start() + mark.end()
+                self.currentrevpos = endpos * -1
+                parsed_text = self.remainder_text[:startpos]
+                self.remainder_text = self.remainder_text[endpos:] \
+                                      if endpos < 0 else ''
+                # It's important that the regex is still in self.next_marks_re
+                #  while the event is handled, see also comment above
+                self.eventdispatcher.fire(regex, MarkEvent(regex, mark,
+                                                           parsed_text))
             # The event handler might have called self.reset_bindings and
             #  unbound this very regex's event
             if self.eventdispatcher.has_handlers(regex):
